@@ -1,0 +1,91 @@
+name: "Paper Add Notification"
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  notify:
+    if: contains(github.event.issue.labels.*.name, 'add-paper')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Slack notification & Issue comment"
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 << 'PYEOF'
+          import os, re, json, urllib.request, subprocess
+
+          body      = os.environ["ISSUE_BODY"]
+          token     = os.environ["SLACK_BOT_TOKEN"]
+          channel   = os.environ["SLACK_CHANNEL_ID"]
+          issue_url = os.environ["ISSUE_URL"]
+          num       = os.environ["ISSUE_NUMBER"]
+
+          def extract(label):
+              m = re.search(rf"### {label}\s*\n+(.+?)(?=\n###|\Z)", body, re.DOTALL)
+              return m.group(1).strip() if m else "-"
+
+          title    = extract("논문 제목")
+          url      = extract("arXiv URL")
+          authors  = extract("저자")
+          year     = extract("출판 연도")
+          category = extract("카테고리")
+          memo     = extract(r"한 줄 메모 .선택.")
+
+          # ── Slack 알림 ──────────────────────────────────────────
+          blocks = [
+            {"type": "header", "text": {"type": "plain_text", "text": "[Paper] 새 논문 추가 요청!", "emoji": True}},
+            {"type": "section", "fields": [
+              {"type": "mrkdwn", "text": f"*제목*\n{title}"},
+              {"type": "mrkdwn", "text": f"*저자*\n{authors} ({year})"},
+            ]},
+            {"type": "section", "fields": [
+              {"type": "mrkdwn", "text": f"*카테고리*\n`{category}`"},
+              {"type": "mrkdwn", "text": f"*링크*\n{url}"},
+            ]},
+          ]
+          if memo and memo != "-":
+              blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": f"*메모:* {memo}"}})
+          blocks.append({"type": "actions", "elements": [
+              {"type": "button", "text": {"type": "plain_text", "text": "GitHub Issue 보기"}, "url": issue_url}
+          ]})
+
+          payload = json.dumps({
+              "channel": channel, "blocks": blocks,
+              "text": f"[Paper] 새 논문: {title}"
+          }).encode()
+          req = urllib.request.Request(
+              "https://slack.com/api/chat.postMessage", data=payload,
+              headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"})
+          res = json.loads(urllib.request.urlopen(req).read())
+          print("Slack:", "OK" if res.get("ok") else res.get("error"))
+
+          # ── Issue 댓글 ──────────────────────────────────────────
+          first_author = re.sub(r"[^a-z]", "", authors.split()[0].lower())
+          first_word   = re.sub(r"[^a-z0-9]", "", title.split()[0].lower())
+          paper_id     = f"{first_author}{year}{first_word}"
+
+          comment = (
+              "**Slack 알림 전송 완료!**\n\n"
+              "로컬에 추가하려면:\n"
+              f"```bash\ncd ~/Desktop/graduate_school/paper_study\npython add_paper.py add \\\n"
+              f'  --id "{paper_id}" \\\n'
+              f'  --title "{title}" \\\n'
+              f'  --authors "{authors}" \\\n'
+              f"  --year {year} \\\n"
+              f'  --url "{url}"\n```\n\n"'
+              "읽고 나면 이 Issue를 **Close** 해주세요!"
+          )
+          subprocess.run(
+              ["gh", "issue", "comment", num, "--body", comment],
+              env={**os.environ}, check=True
+          )
+          print("Issue comment posted.")
+          PYEOF
