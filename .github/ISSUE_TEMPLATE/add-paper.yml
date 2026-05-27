@@ -1,0 +1,56 @@
+name: 📚 논문 추가
+description: 읽을 논문을 추가합니다
+title: "[Paper] "
+labels: ["add-paper"]
+body:
+  - type: input
+    id: title
+    attributes:
+      label: 논문 제목
+      placeholder: "Attention Is All You Need"
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: arXiv URL
+      placeholder: "https://arxiv.org/abs/1706.03762"
+    validations:
+      required: true
+
+  - type: input
+    id: authors
+    attributes:
+      label: 저자
+      placeholder: "Vaswani et al."
+    validations:
+      required: true
+
+  - type: input
+    id: year
+    attributes:
+      label: 출판 연도
+      placeholder: "2017"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: 카테고리
+      options:
+        - foundation
+        - representation
+        - audio-llm
+        - other
+    validations:
+      required: true
+
+  - type: textarea
+    id: memo
+    attributes:
+      label: 한 줄 메모 (선택)
+      placeholder: "읽으려는 이유나 간단한 설명"
+    validations:
+      required: false
