@@ -84,7 +84,7 @@ jobs:
               "읽고 나면 이 Issue를 **Close** 해주세요!"
           )
           subprocess.run(
-              ["gh", "issue", "comment", num, "--body", comment],
+              ["gh", "issue", "comment", num, "--repo", "jsujeon/paper-arxiv", "--body", comment],
               env={**os.environ}, check=True
           )
           print("Issue comment posted.")
